@@ -13,8 +13,9 @@ int other(int player);
 int* play(int* strat0, int* strat1, int score0 = 0, int score1 = 0);
 int winner(int* strat0, int* strat1);
 
+double* fillArray(double* items, int size, double n);
 double averageWinRate(int* strat0, int* strat1, int n = 1000);
-double getExpectedGraph(int* strat0, int* strat1);
+double* getExpectedGraph(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int who = 0, double* graph = fillArray(new double [10000], 10000, -1.0));
 
 int* alwaysRollStrat(int n);
 int* baconStrat(int margin = 8, int numRolls = 4);

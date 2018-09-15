@@ -8,9 +8,11 @@ using namespace std;
 int main(){
 	srand((unsigned int) time(NULL));
 
-	int* strat0 = generateFinalStratTable(6);
-	int* strat1 = swapStrat();
-	double winRate = averageWinRate(strat0, strat1);
-	cout << winRate << endl;
+	int* strat0 = generateFinalStratTable();
+	int* strat1 = alwaysRollStrat(4);
+	double* winRate = getExpectedGraph(strat0, strat1);
+	double winRate2 = averageWinRate(strat0, strat1, 10000000);
+	cout << winRate[0] << endl;
+	cout << winRate2 << endl;
 	return 0;
 }

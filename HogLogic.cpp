@@ -80,7 +80,12 @@ int winner(int* strat0, int* strat1){
 
 
 
-
+double* fillArray(double* items, int size, double n){
+	for(int i = 0; i < size; i++){
+		items[i] = n;
+	}
+	return items;
+}
 
 double averageWinRate(int* strat0, int* strat1, int n){
 	int total = 0;
@@ -91,25 +96,109 @@ double averageWinRate(int* strat0, int* strat1, int n){
 	return total / (n * 2.0);
 }
 
-double getExpectedGraph(int* strat0, int* strat1){
-	// int graph [10000] = {};
-	// int queue [10000] = {};
-	// int turn[10000] = {};
-	// int startIdx = 0;
-	// for (int i = 0; i < 10000; i++){
-	// 	graph[i] = -1;
-	// 	queue[i] = -1;
-	// 	turn[i] = 0;
-	// }
-	// queue[0] = 0;
+double* getExpectedGraph(int* strat0, int* strat1, int score0, int score1, int who, double* graph){
+	if (graph[score0 * 100 + score1] != -1.0){
+		return graph;
+	}
 
-	// while (startIdx < 10000; i++){
-	// 	queue[startIdx];
+	graph[score0 * 100 + score1] = 0.0;
 
-
-	// }
+	if (who == 0){
+		if (strat0[score0 * 100 + score1] == 0){
+			if (isSwap(score0 + freeBacon(score1), score1)){
+				if (score0 + freeBacon(score1) < 100){
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1, score0 + freeBacon(score1), other(who), graph)[score1 * 100 + score0 + freeBacon(score1)];
+				}
+			}
+			else{
+				if (score0 + freeBacon(score1) >= 100){
+					graph[score0 * 100 + score1] += 1.0;
+				}
+				else{
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0 + freeBacon(score1), score1, other(who), graph)[(score0 + freeBacon(score1)) * 100 + score1];
+				}
+			}
+		}
+		else{
+			if (isSwap(score0 + 1, score1)){
+				if (score0 + 1 < 100){
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1, score0 + 1, other(who), graph)[score1 * 100 + score0 + 1] * (1.0 - pow(5.0 / 6.0, strat0[score0 * 100 + score1]));
+				}
+			}
+			else{
+				if (score0 + 1 >= 100){
+					graph[score0 * 100 + score1] += (1.0 - pow(5.0 / 6.0, strat0[score0 * 100 + score1]));
+				}
+				else{
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0 + 1, score1, other(who), graph)[(score0 + 1) * 100 + score1] * (1.0 - pow(5.0 / 6.0, strat0[score0 * 100 + score1]));
+				}
+			}
+			for (int i = 2 * strat0[score0 * 100 + score1]; i <= 6 * strat0[score0 * 100 + score1]; i++){
+				if (isSwap(score0 + i, score1)){
+					if (score0 + i < 100){
+						graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1, score0 + i, other(who), graph)[score1 * 100 + score0 + i] * waysToSumToN(i, strat0[score0 * 100 + score1], 2, 6) * pow(1.0 / 6.0, strat0[score0 * 100 + score1]);
+					}
+				}
+				else{
+					if (score0 + i >= 100){
+						graph[score0 * 100 + score1] += waysToSumToN(i, strat0[score0 * 100 + score1], 2, 6) * pow(1.0 / 6.0, strat0[score0 * 100 + score1]);
+					}
+					else{
+						graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0 + i, score1, other(who), graph)[(score0 + i) * 100 + score1] * waysToSumToN(i, strat0[score0 * 100 + score1], 2, 6) * pow(1.0 / 6.0, strat0[score0 * 100 + score1]);
+					}
+				}
+			}
+		}
+	}
+	else{
+		if (strat1[score1 * 100 + score0] == 0){
+			if (isSwap(score1 + freeBacon(score0), score0)){
+				if (score1 + freeBacon(score0) >= 100){
+					graph[score0 * 100 + score1] += 1.0;
+				}
+				else{
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1 + freeBacon(score0), score0, other(who), graph)[(score1 + freeBacon(score0)) * 100 + score0];
+				}
+			}
+			else{
+				if (score1 + freeBacon(score0) < 100){
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0, score1 + freeBacon(score0), other(who), graph)[score0 * 100 + score1 + freeBacon(score0)];
+				}
+			}
+		}
+		else{
+			if (isSwap(score1 + 1, score0)){
+				if (score1 + 1 >= 100){
+					graph[score0 * 100 + score1] += (1.0 - pow(5.0 / 6.0, strat1[score1 * 100 + score0]));
+				}
+				else{
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1 + 1, score0, other(who), graph)[(score1 + 1) * 100 + score0] * (1.0 - pow(5.0 / 6.0, strat1[score1 * 100 + score0]));
+				}
+			}
+			else{
+				if (score1 + 1 < 100){
+					graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0, score1 + 1, other(who), graph)[score0 * 100 + score1 + 1] * (1.0 - pow(5.0 / 6.0, strat1[score1 * 100 + score0]));
+				}
+			}
+			for (int i = 2 * strat1[score1 * 100 + score0]; i <= 6 * strat1[score1 * 100 + score0]; i++){
+				if (isSwap(score1 + i, score0)){
+					if (score1 + i >= 100){
+						graph[score0 * 100 + score1] += waysToSumToN(i, strat1[score1 * 100 + score0], 2, 6) * pow(1.0 / 6.0, strat1[score1 * 100 + score0]);
+					}
+					else{
+						graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score1 + i, score0, other(who), graph)[(score1 + i) * 100 + score0] * waysToSumToN(i, strat1[score1 * 100 + score0], 2, 6) * pow(1.0 / 6.0, strat1[score1 * 100 + score0]);
+					}
+				}
+				else{
+					if (score1 + i < 100){
+						graph[score0 * 100 + score1] += getExpectedGraph(strat0, strat1, score0, score1 + i, other(who), graph)[score0 * 100 + score1 + i] * waysToSumToN(i, strat1[score1 * 100 + score0], 2, 6) * pow(1.0 / 6.0, strat1[score1 * 100 + score0]);
+					}
+				}
+			}
+		}
+	}
+	return graph;
 }
-
 
 
 
