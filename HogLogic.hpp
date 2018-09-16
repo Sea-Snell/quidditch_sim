@@ -15,7 +15,8 @@ int winner(int* strat0, int* strat1);
 
 double* fillArray(double* items, int size, double n);
 double averageWinRate(int* strat0, int* strat1, int n = 1000);
-double* getExpectedGraph(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int who = 0, double* graph = fillArray(new double [10000], 10000, -1.0));
+double* getExpectedGraph(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int who = 0, int didTimeTrot = 0, int turnNumber = 0, double* graph = fillArray(new double [200000], 200000, -1.0));
+int getCoordinate(int score0, int score1, int who, int didTimeTrot, int turnNumber);
 
 int* alwaysRollStrat(int n);
 int* baconStrat(int margin = 8, int numRolls = 4);
