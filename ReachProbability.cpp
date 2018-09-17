@@ -2,6 +2,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <math.h>
+#include <algorithm>
 #include "DataManager.cpp"
 
 using namespace std;
@@ -9,7 +11,11 @@ using namespace std;
 class ProbabilityMapper
 {
 public:
+	int* strat0;
+	int* strat1;
+	vector<vector<float>> turnProbs;
 	ProbabilityMapper(){
+		this->turnProbs = turnMap();
 		for(int i = 0; i < 199; i++){
 			vector<vector<int>> temp;
 			this->queue.push_back(temp);
@@ -24,17 +30,52 @@ public:
 		}
 
 	}
-	vector<vector<vector<float> > > ProbabilityMap(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int turn = 0, int who = 0, int initProb = 1, int trotLast = 0){
 
+	vector<vector<float> > turnMap(){
+		vector<float> emptyProbs;
+		for(float i = 0; i<=60; i++){
+			emptyProbs.push_back(i);
+			emptyProbs.push_back(0.0);
+		}
+
+		vector<vector<float> > possTurns;
+		vector<float> lay0;
+		lay0.push_back(0.0);
+		lay0.push_back(1.0);
+		lay0.push_back(1.0);
+		lay0.push_back(0.0);
+		possTurns.push_back(lay0);
+		for(int i = 0; i<10;i++){
+			vector<float> tempLayer = emptyProbs;
+			for(int j = 0; j< possTurns[i].size(); j+=2){
+				if(possTurns[i][j] == 1.0){
+					tempLayer[3] += possTurns[i][j+1] + ((1-possTurns[i][j+1])*1/6.0);
+				}else{
+					for(int k = 2; k <= 6; k++){
+						tempLayer[2*(possTurns[i][j] + k) + 1] += possTurns[i][j+1] * 1/6.0;
+					}
+				}
+			}
+			for(int j = 121; j >= 0; j-=2){
+				if(tempLayer[j] == 0.0){
+					tempLayer.erase(tempLayer.begin() + j-1, tempLayer.begin() + j+1);
+				}
+			}
+			possTurns.push_back(tempLayer);
+		}
+		return possTurns;
+	}
+
+	vector<vector<vector<float> > > ProbabilityMap(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int turn = 0, int who = 0, int initProb = 1, int trotLast = 0){
+		this->strat0 = strat0;
+		this->strat1 = strat1;
 
 		for(int i = slice(score0, score1) + 1; i < 199; i++){
 			for(int j = 0; j < queue[i].size(); j++){
 				queueTurn(queue[i][j][0], queue[i][j][1], queue[i][j][2], queue[i][j][3], output[queue[i][j][0]][queue[i][j][1]][queue[i][j][2] + 10* queue[i][j][3]]);
 			}
-
 		}
-
-
+		return output;
 	}
 
 
@@ -42,12 +83,107 @@ private:
 	vector<vector<vector<int > > > queue;
 	vector<vector<vector<float> > > output;
 
-	int slice(int x, int y){
-		 return x + y;
+	int gridIndex(int score0, int score1){
+			return score0*100 + score1;
 	}
 
-	void queueTurn(int x, int y, int turnState, int trotLast, float probability){
+	int stateIndex(int turnState, int trot){
+		return turnState * (trot +1);
+	}
+
+	int slice(int score0, int score1){
+		 return score0 + score1;
+	}
+
+	int getDigitDifference(int score){
+		return abs((score % 100) / 10 - score % 10);
+	}
+
+	int freeBacon(int score1){
+		return max(1, 2 * (score1 / 10) - (score1 % 10));
+	}
+
+	bool isSwap(int score0, int score1){
+		return getDigitDifference(score0) == getDigitDifference(score1);
+	}
+
+	void queueTurn(int score0, int score1, int turnState, int trotLast, float probability){
+		int* strat;
+		int aScore;
+		int bScore;
+		if(turnState < 5){
+			aScore = score0;
+			bScore = score1;
+			strat = strat0;
+		}else{
+			aScore = score1;
+			bScore = score0;
+			strat = strat1;
+		}
+		for(int i = 0; i< queue[slice(score0, score1)].size(); i+=2){
+			for(int j = 0; j < turnProbs[strat[gridIndex(aScore, bScore)]].size(); j+=2){
+				int tempAS = aScore;
+				int tempBS = bScore;
+				int rollCo = turnProbs[strat[gridIndex(aScore, bScore)]][j];
+				if(rollCo == 0.0){
+					tempAS += freeBacon(tempAS);
+				}else{
+					tempAS += rollCo;
+				}
+
+				if(isSwap(tempAS, tempBS)){
+					int swapper = tempBS;
+					tempBS = tempAS;
+					tempAS = swapper;
+				}
+
+				if(turnState >= 5){
+					int swapper = tempBS;
+					tempBS = tempAS;
+					tempAS = swapper;
+				}
+
+				if(tempBS > 99 || tempAS > 99){
+					continue;
+				}
+				//turn calculation
+				int nextTurn;
+				int trot = 0;
+
+				if(trotLast == 1){
+					trot = 0;
+					nextTurn = (turnState + 1)%5 + (turnState <5 ? 5 : 0);
+				}else if(turnState%5 == rollCo){
+					trot = 1;
+					nextTurn = (turnState + 1)%5 + (turnState <5 ? 0 : 5);
+				}else{
+					trot = 0;
+					nextTurn = (turnState + 1)%5 + (turnState <5 ? 5 : 0);
+				}
+				vector<int> queueEntry = {tempAS, tempBS,nextTurn, trot};
+				queue[slice(tempAS,tempBS)].push_back(queueEntry);
+
+				output[tempAS][tempBS][nextTurn + trot * 10] += probability * turnProbs[rollCo][j+1];
+			}
+		}
 
 	}
 };
 
+
+
+/*int main(){
+	vector<vector<float> > testMap = turnMap();
+	for(int i = 0; i< testMap.size(); i++){
+		float tot = 0;
+		cout << "[";
+		for(int j = 0; j < testMap[i].size(); j++){
+			cout<< testMap[i][j] << ",";
+			if(j % 2 == 1){
+				tot += testMap[i][j];
+			}
+		}
+		cout << "]" << endl;
+		cout << tot << endl;
+	}
+}*/
