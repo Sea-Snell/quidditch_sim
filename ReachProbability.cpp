@@ -60,12 +60,20 @@ public:
 		this->strat0 = strat0;
 		this->strat1 = strat1;
 		queue.clear();
-		queue.reserve(199);
 		for(int i = 0; i < 199; i++){
 			vector<vector<int>> temp;
-			temp.reserve(200);
 			this->queue.push_back(temp);
 		}
+		reached.clear();
+		for(int i = 0; i < 100; i++){
+			vector<vector<bool>> temp;
+			this->reached.push_back(temp);
+			for(int j = 0; j < 100; j++){
+				vector<bool> temp2	(20,true);
+				this->reached[i].push_back(temp2);
+			}
+		}
+
 		output.clear();
 		for(int i = 0; i < 100; i++){
 			vector<vector<float>> temp;
@@ -91,8 +99,9 @@ public:
 
 
 private:
-	vector<vector<vector<int > > > queue;
+	vector<vector<vector<int> > > queue;
 	vector<vector<vector<float> > > output;
+	vector<vector<vector<bool> > > reached;
 
 	int gridIndex(int score0, int score1){
 			return score0*100 + score1;
@@ -168,8 +177,10 @@ private:
 					nextTurn = (turnState + 1)%5 + (turnState < 5 ? 5 : 0);
 				}
 				vector<int> queueEntry = {tempAS, tempBS, nextTurn, trot};
-				queue[slice(tempAS,tempBS)].push_back(queueEntry);
-
+				if(reached[tempAS][tempBS][nextTurn + trot * 10]){
+					queue[slice(tempAS,tempBS)].push_back(queueEntry);
+					reached[tempAS][tempBS][nextTurn + trot * 10] = false;
+				}
 				output[tempAS][tempBS][nextTurn + trot * 10] += probability * turnProbs[strat[gridIndex(aScore, bScore)]][j+1];
 			}
 		}
