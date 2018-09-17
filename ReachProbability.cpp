@@ -69,7 +69,7 @@ public:
 	vector<vector<vector<float> > > ProbabilityMap(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int turn = 0, int who = 0, int initProb = 1, int trotLast = 0){
 		this->strat0 = strat0;
 		this->strat1 = strat1;
-
+		queue.clear();
 		for(int i = slice(score0, score1) + 1; i < 199; i++){
 			for(int j = 0; j < queue[i].size(); j++){
 				queueTurn(queue[i][j][0], queue[i][j][1], queue[i][j][2], queue[i][j][3], output[queue[i][j][0]][queue[i][j][1]][queue[i][j][2] + 10* queue[i][j][3]]);
@@ -85,10 +85,6 @@ private:
 
 	int gridIndex(int score0, int score1){
 			return score0*100 + score1;
-	}
-
-	int stateIndex(int turnState, int trot){
-		return turnState * (trot +1);
 	}
 
 	int slice(int score0, int score1){
