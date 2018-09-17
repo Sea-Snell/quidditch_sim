@@ -99,6 +99,47 @@ double* fillArray(double* items, int size, double n){
 	return items;
 }
 
+double* spamScoreProbability(int* strat0, int* strat1, int n){
+	double* graph = fillArray(new double [200000], 200000, -1.0);
+	for (int i = 0; i < n; i++){
+		int score0 = 0;
+		int score1 = 0;
+		int player = 0;
+		int turn = 0;
+		int numRolls = -1;
+		int didTimeTrot = 0;
+		while (score0 < 100 && score1 < 100){
+			if (graph[getCoordinate(score0, score1, player, didTimeTrot, turn)] == -1){
+				graph[getCoordinate(score0, score1, player, didTimeTrot, turn)] = 0.0;
+			}
+			graph[getCoordinate(score0, score1, player, didTimeTrot, turn)] += 1.0 / (double)(n);
+
+			if (player == 0){
+				numRolls = strat0[score0 * 100 + score1];
+				score0 += takeTurn(numRolls, score1);
+			}
+			else{
+				numRolls = strat1[score1 * 100 + score0];
+				score1 += takeTurn(numRolls, score0);
+			}
+			if (isSwap(score0, score1)){
+				int temp = score0;
+				score0 = score1;
+				score1 = temp;
+			}
+			if (turn % 5 != numRolls || didTimeTrot == 1){
+				player = other(player);
+				didTimeTrot = 0;
+			}
+			else{
+				didTimeTrot = 1;
+			}
+			turn += 1;
+		}
+	}
+	return graph;
+}
+
 double averageWinRate(int* strat0, int* strat1, int n){
 	int total = 0;
 	for (int i = 0; i < n; i++){
@@ -436,6 +477,8 @@ double* getMaxRoll(int score0, int score1, int turnsAhead){
 		double* expected = calculateExpected((int)(score0 + 0.5), (int)(score1 + 0.5), i);
 		if (turnsAhead > 1 && ((int)(score0 + 0.5) < 100) && ((int)(score1 + 0.5) < 100)){
 			double* resultVals = getMaxRoll(expected[1], expected[0], turnsAhead - 1);
+			expected[0] = resultVals[1];
+			expected[1] = resultVals[0];
 		}
 		if (expected[0] - expected[1] > maxDiff){
 			maxDiff = expected[0] - expected[1];
@@ -447,12 +490,326 @@ double* getMaxRoll(int score0, int score1, int turnsAhead){
 	return new double [3] {maxPlayerScore, maxOpponentScore, bestRoll};
 }
 
-int* generateFinalStratTable(int n){
+
+double* fullExpectedTable(int score0, int score1, int who, int didTimeTrot, int turnNumber, double* graph){
+	for (int i = 0; i < 11; i++){
+		int currentCoordinate = getCoordinate2(score0, score1, who, didTimeTrot, turnNumber, i, 0);
+		if (graph[currentCoordinate] != -1.0){
+			return graph;
+		}
+		graph[currentCoordinate] = 0.0;
+		graph[currentCoordinate + 1] = 0.0;
+
+		if (who == 0){
+			if (i == 0){
+				if (isSwap(score0 + freeBacon(score1), score1)){
+					if (score0 + freeBacon(score1) < 100){
+						if (turnNumber % 5 == 0 && didTimeTrot == 0){
+							int maxIdx = getMaximum(score1, score0 + freeBacon(score1), who, 1, turnNumber + 1, fullExpectedTable(score1, score0 + freeBacon(score1), who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+						else{
+							int maxIdx = getMaximum(score1, score0 + freeBacon(score1), other(who), 0, turnNumber + 1, fullExpectedTable(score1, score0 + freeBacon(score1), other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+					}
+					else{
+						graph[currentCoordinate] += score1;
+						graph[currentCoordinate + 1] += score0 + freeBacon(score1);
+					}
+				}
+				else{
+					if (score0 + freeBacon(score1) >= 100){
+						graph[currentCoordinate] += score0 + freeBacon(score1);
+						graph[currentCoordinate + 1] += score1;
+					}
+					else{
+						if (turnNumber % 5 == 0 && didTimeTrot == 0){
+							int maxIdx = getMaximum(score0 + freeBacon(score1), score1, who, 1, turnNumber + 1, fullExpectedTable(score0 + freeBacon(score1), score1, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+						else{
+							int maxIdx = getMaximum(score0 + freeBacon(score1), score1, other(who), 0, turnNumber + 1, fullExpectedTable(score0 + freeBacon(score1), score1, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+					}
+				}
+			}
+			else{
+				double prob = (1.0 - pow(5.0 / 6.0, i));
+				if (isSwap(score0 + 1, score1)){
+					if (score0 + 1 < 100){
+						if (turnNumber % 5 == i && didTimeTrot == 0){
+							int maxIdx = getMaximum(score1, score0 + 1, who, 1, turnNumber + 1, fullExpectedTable(score1, score0 + 1, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+						else{
+							int maxIdx = getMaximum(score1, score0 + 1, other(who), 0, turnNumber + 1, fullExpectedTable(score1, score0 + 1, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+					}
+					else{
+						graph[currentCoordinate] += score1 * prob;
+						graph[currentCoordinate + 1] += (score0 + 1) * prob;
+					}
+				}
+				else{
+					if (score0 + 1 >= 100){
+						graph[currentCoordinate] += (score0 + 1) * prob;
+						graph[currentCoordinate + 1] += score1 * prob;
+					}
+					else{
+						if (turnNumber % 5 == i && didTimeTrot == 0){
+							int maxIdx = getMaximum(score0 + 1, score1, who, 1, turnNumber + 1, fullExpectedTable(score0 + 1, score1, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+						else{
+							int maxIdx = getMaximum(score0 + 1, score1, other(who), 0, turnNumber + 1, fullExpectedTable(score0 + 1, score1, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+					}
+				}
+				for (int x = 2 * i; x <= 6 * i; x++){
+					prob = waysToSumToN(x, i, 2, 6) * pow(1.0 / 6.0, i);
+					if (isSwap(score0 + x, score1)){
+						if (score0 + x < 100){
+							if (turnNumber % 5 == i && didTimeTrot == 0){
+								int maxIdx = getMaximum(score1, score0 + x, who, 1, turnNumber + 1, fullExpectedTable(score1, score0 + x, who, 1, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+							else{
+								int maxIdx = getMaximum(score1, score0 + x, other(who), 0, turnNumber + 1, fullExpectedTable(score1, score0 + x, other(who), 0, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+						}
+						else{
+							graph[currentCoordinate] += score1 * prob;
+							graph[currentCoordinate + 1] += (score0 + x) * prob;
+						}
+					}
+					else{
+						if (score0 + x >= 100){
+							graph[currentCoordinate] += (score0 + x) * prob;
+							graph[currentCoordinate + 1] += score1 * prob;
+						}
+						else{
+							if (turnNumber % 5 == i && didTimeTrot == 0){
+								int maxIdx = getMaximum(score0 + x, score1, who, 1, turnNumber + 1, fullExpectedTable(score0 + x, score1, who, 1, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+							else{
+								int maxIdx = getMaximum(score0 + x, score1, other(who), 0, turnNumber + 1, fullExpectedTable(score0 + x, score1, other(who), 0, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+						}
+					}
+				}
+			}
+		}
+		else{
+			if (i == 0){
+				if (isSwap(score1 + freeBacon(score0), score0)){
+					if (score1 + freeBacon(score0) >= 100){
+						graph[currentCoordinate] += score1 + freeBacon(score0);
+						graph[currentCoordinate + 1] += score0;
+					}
+					else{
+						if (turnNumber % 5 == 0 && didTimeTrot == 0){
+							int maxIdx = getMaximum(score1 + freeBacon(score0), score0, who, 1, turnNumber + 1, fullExpectedTable(score1 + freeBacon(score0), score0, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+						else{
+							int maxIdx = getMaximum(score1 + freeBacon(score0), score0, other(who), 0, turnNumber + 1, fullExpectedTable(score1 + freeBacon(score0), score0, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+					}
+				}
+				else{
+					if (score1 + freeBacon(score0) < 100){
+						if (turnNumber % 5 == 0 && didTimeTrot == 0){
+							int maxIdx = getMaximum(score0, score1 + freeBacon(score0), who, 1, turnNumber + 1, fullExpectedTable(score0, score1 + freeBacon(score0), who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+						else{
+							int maxIdx = getMaximum(score0, score1 + freeBacon(score0), other(who), 0, turnNumber + 1, fullExpectedTable(score0, score1 + freeBacon(score0), other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx];
+							graph[currentCoordinate + 1] += graph[maxIdx + 1];
+						}
+					}
+					else{
+						graph[currentCoordinate] += score0;
+						graph[currentCoordinate + 1] += score1 + freeBacon(score0);
+					}
+				}
+			}
+			else{
+				double prob = (1.0 - pow(5.0 / 6.0, i));
+				if (isSwap(score1 + 1, score0)){
+					if (score1 + 1 >= 100){
+						graph[currentCoordinate] += (score1 + 1) * prob;
+						graph[currentCoordinate + 1] += score0 * prob;
+					}
+					else{
+						if (turnNumber % 5 == i && didTimeTrot == 0){
+							int maxIdx = getMaximum(score1 + 1, score0, who, 1, turnNumber + 1, fullExpectedTable(score1 + 1, score0, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+						else{
+							int maxIdx = getMaximum(score1 + 1, score0, other(who), 0, turnNumber + 1, fullExpectedTable(score1 + 1, score0, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+					}
+				}
+				else{
+					if (score1 + 1 < 100){
+						if (turnNumber % 5 == i && didTimeTrot == 0){
+							int maxIdx = getMaximum(score0, score1 + 1, who, 1, turnNumber + 1, fullExpectedTable(score0, score1 + 1, who, 1, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+						else{
+							int maxIdx = getMaximum(score0, score1 + 1, other(who), 0, turnNumber + 1, fullExpectedTable(score0, score1 + 1, other(who), 0, turnNumber + 1, graph));
+							graph[currentCoordinate] += graph[maxIdx] * prob;
+							graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+						}
+					}
+					else{
+						graph[currentCoordinate] += score0 * prob;
+						graph[currentCoordinate + 1] += (score1 + 1) * prob;
+					}
+				}
+				for (int x = 2 * i; x <= 6 * i; x++){
+					prob = waysToSumToN(x, i, 2, 6) * pow(1.0 / 6.0, i);
+					if (isSwap(score1 + x, score0)){
+						if (score1 + x >= 100){
+							graph[currentCoordinate] += (score1 + x) * prob;
+							graph[currentCoordinate + 1] += score0 * prob;
+						}
+						else{
+							if (turnNumber % 5 == i && didTimeTrot == 0){
+								int maxIdx = getMaximum(score1 + x, score0, who, 1, turnNumber + 1, fullExpectedTable(score1 + x, score0, who, 1, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+							else{
+								int maxIdx = getMaximum(score1 + x, score0, other(who), 0, turnNumber + 1, fullExpectedTable(score1 + x, score0, other(who), 0, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+						}
+					}
+					else{
+						if (score1 + x < 100){
+							if (turnNumber % 5 == i && didTimeTrot == 0){
+								int maxIdx = getMaximum(score0, score1 + x, who, 1, turnNumber + 1, fullExpectedTable(score0, score1 + x, who, 1, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+							else{
+								int maxIdx = getMaximum(score0, score1 + x, other(who), 0, turnNumber + 1, fullExpectedTable(score0, score1 + x, other(who), 0, turnNumber + 1, graph));
+								graph[currentCoordinate] += graph[maxIdx] * prob;
+								graph[currentCoordinate + 1] += graph[maxIdx + 1] * prob;
+							}
+						}
+						else{
+							graph[currentCoordinate] += score0 * prob;
+							graph[currentCoordinate + 1] += (score1 + x) * prob;
+						}
+					}
+				}
+			}
+		}
+	}
+	return graph;
+}
+
+int getCoordinate2(int score0, int score1, int who, int didTimeTrot, int turnNumber, int numRolls, int whichScore){
+	return 44000 * score0 + 440 * score1 + 220 * who + 110 * didTimeTrot + 22 * (turnNumber % 5) + 2 * numRolls + whichScore;
+}
+
+int getMaximum(int score0, int score1, int who, int didTimeTrot, int turnNumber, double* graph){
+	int maxVal = -10000000;
+	int maxCoordinate = 0;
+	for (int i = 0; i < 11; i++){
+		if (graph[getCoordinate2(score0, score1, who,  didTimeTrot, turnNumber, i, who)] - graph[getCoordinate2(score0, score1, who,  didTimeTrot, turnNumber, i, other(who))] > maxVal){
+			maxVal = graph[getCoordinate2(score0, score1, who,  didTimeTrot, turnNumber, i, who)] - graph[getCoordinate2(score0, score1, who,  didTimeTrot, turnNumber, i, other(who))];
+			maxCoordinate = getCoordinate2(score0, score1, who,  didTimeTrot, turnNumber, i, 0);
+		}
+	}
+	return maxCoordinate;
+}
+
+
+
+
+
+
+
+
+int* generateFinalStratTable(int n, double* probabilityOfReaching){
 	int* strat = new int [10000];
 	for (int i = 0; i < 10000; i++){
 		strat[i] = getMaxRoll(i / 100, i % 100, n)[2];
 	}
 	return strat;
+}
+
+int* generateFullTable(double* weights){
+	double* table = fullExpectedTable();
+
+	int* newTable = new int [10000];
+	for (int i = 0; i < 100; i++){
+		for (int x = 0; x < 100; x++){
+			double maxVal = -10000000.0;
+			int maxRoll = 0;
+			double totalWeight = 0.0;
+			for (int who = 0; who < 2; who++){
+				for (int didTimeTrot = 0; didTimeTrot < 2; didTimeTrot++){
+					for (int turnNumber = 0; turnNumber < 5; turnNumber++){
+						totalWeight += weights[getCoordinate(i, x, who, didTimeTrot, turnNumber)];
+					}
+				}
+			}
+
+
+			for (int rolls = 0; rolls < 11; rolls++){
+				double weightedExpected = 0.0;
+				double weightedExpectedOpponent = 0.0;
+				for (int who = 0; who < 2; who++){
+					for (int didTimeTrot = 0; didTimeTrot < 2; didTimeTrot++){
+						for (int turnNumber = 0; turnNumber < 5; turnNumber++){
+							weightedExpected += table[getCoordinate2(i, x, who, didTimeTrot, turnNumber, rolls, who)] * weights[getCoordinate(i, x, who, didTimeTrot, turnNumber)] / totalWeight;
+							weightedExpectedOpponent += table[getCoordinate2(i, x, who, didTimeTrot, turnNumber, rolls, other(who))] * weights[getCoordinate(i, x, who, didTimeTrot, turnNumber)] / totalWeight;
+						}
+					}
+				}
+
+				if (weightedExpected - weightedExpectedOpponent > maxVal){
+					maxVal = weightedExpected - weightedExpectedOpponent;
+					maxRoll = rolls;
+				}
+			}
+			newTable[i * 100 + x] = maxRoll;
+		}
+	}
+	return newTable;
 }
 
 
