@@ -16,18 +16,7 @@ public:
 	vector<vector<float>> turnProbs;
 	ProbabilityMapper(){
 		this->turnProbs = turnMap();
-		for(int i = 0; i < 199; i++){
-			vector<vector<int>> temp;
-			this->queue.push_back(temp);
-		}
-		for(int i = 0; i < 100; i++){
-			vector<vector<float>> temp;
-			this->output.push_back(temp);
-			for(int j = 0; j < 100; j++){
-				vector<float> temp2	(20,0.0);
-				this->output[i].push_back(temp2);
-			}
-		}
+
 
 	}
 
@@ -63,17 +52,39 @@ public:
 			}
 			possTurns.push_back(tempLayer);
 		}
+		possTurns[0].erase(possTurns[0].begin()+2, possTurns[0].begin() +4);
 		return possTurns;
 	}
 
-	vector<vector<vector<float> > > ProbabilityMap(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int turn = 0, int who = 0, int initProb = 1, int trotLast = 0){
+	vector<vector<vector<float> > > ProbabilityMap(int* strat0, int* strat1, int score0 = 0, int score1 = 0, int turn = 0, int who = 0, int initProb = 1.0, int trotLast = 0){
 		this->strat0 = strat0;
 		this->strat1 = strat1;
 		queue.clear();
-		for(int i = slice(score0, score1) + 1; i < 199; i++){
+		queue.reserve(199);
+		for(int i = 0; i < 199; i++){
+			vector<vector<int>> temp;
+			temp.reserve(200);
+			this->queue.push_back(temp);
+		}
+		output.clear();
+		for(int i = 0; i < 100; i++){
+			vector<vector<float>> temp;
+			this->output.push_back(temp);
+			for(int j = 0; j < 100; j++){
+				vector<float> temp2	(20,0.0);
+				this->output[i].push_back(temp2);
+			}
+		}
+
+		output[score0][score1][turn%5 + 5* who + 10* trotLast] = initProb;
+
+		vector<int> startPoint = {score0, score1, turn%5 + 5* who, trotLast};
+		queue[slice(score0,score1)].push_back(startPoint);
+		for(int i = slice(score0, score1); i < 199; i++){
 			for(int j = 0; j < queue[i].size(); j++){
 				queueTurn(queue[i][j][0], queue[i][j][1], queue[i][j][2], queue[i][j][3], output[queue[i][j][0]][queue[i][j][1]][queue[i][j][2] + 10* queue[i][j][3]]);
 			}
+			cout << i << endl;
 		}
 		return output;
 	}
@@ -116,13 +127,13 @@ private:
 			bScore = score0;
 			strat = strat1;
 		}
-		for(int i = 0; i< queue[slice(score0, score1)].size(); i+=2){
+		for(int i = 0; i< queue[slice(score0, score1)].size(); i++){
 			for(int j = 0; j < turnProbs[strat[gridIndex(aScore, bScore)]].size(); j+=2){
 				int tempAS = aScore;
 				int tempBS = bScore;
 				int rollCo = turnProbs[strat[gridIndex(aScore, bScore)]][j];
 				if(rollCo == 0.0){
-					tempAS += freeBacon(tempAS);
+					tempAS += freeBacon(tempBS);
 				}else{
 					tempAS += rollCo;
 				}
@@ -148,38 +159,41 @@ private:
 
 				if(trotLast == 1){
 					trot = 0;
-					nextTurn = (turnState + 1)%5 + (turnState <5 ? 5 : 0);
+					nextTurn = (turnState + 1)%5 + (turnState < 5 ? 5 : 0);
 				}else if(turnState%5 == rollCo){
 					trot = 1;
-					nextTurn = (turnState + 1)%5 + (turnState <5 ? 0 : 5);
+					nextTurn = (turnState + 1)%5 + (turnState < 5 ? 0 : 5);
 				}else{
 					trot = 0;
-					nextTurn = (turnState + 1)%5 + (turnState <5 ? 5 : 0);
+					nextTurn = (turnState + 1)%5 + (turnState < 5 ? 5 : 0);
 				}
-				vector<int> queueEntry = {tempAS, tempBS,nextTurn, trot};
+				vector<int> queueEntry = {tempAS, tempBS, nextTurn, trot};
 				queue[slice(tempAS,tempBS)].push_back(queueEntry);
 
-				output[tempAS][tempBS][nextTurn + trot * 10] += probability * turnProbs[rollCo][j+1];
+				output[tempAS][tempBS][nextTurn + trot * 10] += probability * turnProbs[strat[gridIndex(aScore, bScore)]][j+1];
 			}
 		}
-
 	}
 };
 
 
 
-/*int main(){
-	vector<vector<float> > testMap = turnMap();
-	for(int i = 0; i< testMap.size(); i++){
-		float tot = 0;
-		cout << "[";
-		for(int j = 0; j < testMap[i].size(); j++){
-			cout<< testMap[i][j] << ",";
-			if(j % 2 == 1){
-				tot += testMap[i][j];
+int main(){
+	ProbabilityMapper testmap;
+	int str0 [10000];
+	int str1 [10000];
+	for(int i = 0; i<= 10000; i++){
+		str0[i] = 1;
+		str1[i] = 1;
+	}
+
+	vector<vector<vector<float>>> outData = testmap.ProbabilityMap(str0,str1);
+	for(int i = 0; i < 10; i++){
+		for(int j = 0; j< 10 ; j++){
+			for(int k = 0; k < 20; k++){
+				cout << outData[i][j][k] << endl;
 			}
 		}
-		cout << "]" << endl;
-		cout << tot << endl;
 	}
-}*/
+
+}
